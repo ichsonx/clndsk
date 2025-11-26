@@ -75,6 +75,55 @@ def delete_files(file_list):
     
     return deleted_count, error_count
 
+def find_empty_folders(target_path, recursive):
+    """查找空文件夹"""
+    empty_folders = []
+    
+    try:
+        if recursive:
+            # 递归遍历所有目录
+            folder_iterator = target_path.rglob("*")
+        else:
+            # 仅遍历当前目录
+            folder_iterator = target_path.glob("*")
+        
+        for folder_path in folder_iterator:
+            if folder_path.is_dir():
+                # 检查文件夹是否为空
+                try:
+                    # 使用 listdir 检查文件夹内容
+                    contents = list(folder_path.iterdir())
+                    if not contents:
+                        empty_folders.append(folder_path)
+                except (PermissionError, OSError):
+                    # 跳过无法访问的文件夹
+                    continue
+                    
+    except Exception as e:
+        print_red(f"遍历文件夹时发生错误: {e}")
+        return []
+    
+    return empty_folders
+
+def delete_empty_folders(folder_list):
+    """删除空文件夹列表"""
+    deleted_count = 0
+    error_count = 0
+    total_folders = len(folder_list)
+    
+    for index, folder_path in enumerate(folder_list, 1):
+        try:
+            # 显示删除进度
+            print(f"[{index}/{total_folders}] 正在删除空文件夹: {folder_path}")
+            folder_path.rmdir()  # 删除空文件夹
+            print_green(f"    ✓ 已删除空文件夹: {folder_path}")
+            deleted_count += 1
+        except Exception as e:
+            print_red(f"    ✗ 删除空文件夹失败 {folder_path}: {e}")
+            error_count += 1
+    
+    return deleted_count, error_count
+
 def main():
     """主程序入口"""
     print("=== 文件清理工具 clndsk ===")
@@ -151,6 +200,36 @@ def main():
     
     print()
     
+    # TASK-1.1: 询问用户是否在清理文件完毕后也清理空文件夹
+    print("请选择是否在清理文件完毕后也清理空文件夹：")
+    print_blue("1: 是/yes")
+    print_blue("2: 否/no")
+    print()
+    
+    while True:
+        try:
+            clean_empty_folders_choice = input("请输入数字选择 (1 或 2): ").strip()
+            
+            if clean_empty_folders_choice == "1":
+                clean_empty_folders = True
+                print_green("选择：清理文件完毕后也清理空文件夹")
+                break
+            elif clean_empty_folders_choice == "2":
+                clean_empty_folders = False
+                print_green("选择：不清理空文件夹")
+                break
+            else:
+                print_red("错误：请输入 1 或 2")
+                
+        except KeyboardInterrupt:
+            print("\n\n程序被用户中断")
+            sys.exit(0)
+        except Exception as e:
+            print_red(f"发生错误: {e}")
+            sys.exit(1)
+    
+    print()
+    
     # TASK-1.4: 查找匹配文件并确认删除
     print("正在搜索包含关键字的文件...")
     matched_files = find_matching_files(target_path, recursive)
@@ -190,6 +269,61 @@ def main():
                 print_green(f"删除完成！成功删除 {deleted_count} 个文件")
                 if error_count > 0:
                     print_red(f"删除失败 {error_count} 个文件")
+                
+                # TASK-1.2: 如果用户选择了清理空文件夹，则查找并询问是否删除空文件夹
+                if clean_empty_folders:
+                    print()
+                    print("正在搜索空文件夹...")
+                    empty_folders = find_empty_folders(target_path, recursive)
+                    
+                    if not empty_folders:
+                        print_green("未找到空文件夹")
+                    else:
+                        # 显示前几个空文件夹作为预览
+                        print("空文件夹预览：")
+                        for i, folder_path in enumerate(empty_folders[:5]):
+                            print(f"  {i+1}. {folder_path}")
+                        if len(empty_folders) > 5:
+                            print(f"  ... 还有 {len(empty_folders) - 5} 个空文件夹")
+                        print()
+                        
+                        # 显示空文件夹数量
+                        print_red(f"找到 {len(empty_folders)} 个空文件夹")
+                        print()
+                        
+                        # 询问是否删除空文件夹（蓝色选项）
+                        print("请确认是否删除这些空文件夹：")
+                        print_blue("1: 是/yes (删除所有空文件夹)")
+                        print_blue("2: 否/no (退出程序)")
+                        print()
+                        
+                        while True:
+                            try:
+                                delete_empty_choice = input("请输入数字选择 (1 或 2): ").strip()
+                                
+                                if delete_empty_choice == "1":
+                                    print()
+                                    print("开始删除空文件夹...")
+                                    deleted_empty_count, error_empty_count = delete_empty_folders(empty_folders)
+                                    print()
+                                    print_green(f"空文件夹删除完成！成功删除 {deleted_empty_count} 个空文件夹")
+                                    if error_empty_count > 0:
+                                        print_red(f"删除失败 {error_empty_count} 个空文件夹")
+                                    break
+                                    
+                                elif delete_empty_choice == "2":
+                                    print_green("用户选择不删除空文件夹")
+                                    break
+                                    
+                                else:
+                                    print_red("错误：请输入 1 或 2")
+                                    
+                            except KeyboardInterrupt:
+                                print("\n\n程序被用户中断")
+                                sys.exit(0)
+                            except Exception as e:
+                                print_red(f"发生错误: {e}")
+                                sys.exit(1)
                 break
                 
             elif delete_choice == "2":
